@@ -2,7 +2,7 @@
 // before the harvest transaction is signed.
 const INTERCEPTA_API = "https://api.intercepta.ai/v1/screen";
 
-export type ScreenResult = { address: string; verdict: "pass" | "flagged"; reason?: string };
+export type ScreenResult = { address: string; verdict: "pass" | "flagged"; reason?: string | undefined };
 
 export async function screenAddress(address: string): Promise<ScreenResult> {
   try {
