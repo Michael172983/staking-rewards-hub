@@ -1,6 +1,6 @@
 # Staking Rewards Hub
 
-eth global提出ようになんかつくって　ステーキングシテルの回収したいだけなんでてきとうでいいよ　じゅしょうできなくていいからはやくつくって
+
 
 This project was built with [Lovable](https://lovable.dev).
 
