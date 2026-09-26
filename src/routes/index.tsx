@@ -1,24 +1,222 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { useState } from "react";
+import { toast } from "sonner";
+import { Toaster } from "@/components/ui/sonner";
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Separator } from "@/components/ui/separator";
 
-// No head() here: the home route inherits title/description/og/twitter from
-// __root.tsx, and ships no og:image so serve-time hosting can inject the
-// project's social preview (explicit og:image or latest screenshot).
 export const Route = createFileRoute("/")({
+  head: () => ({
+    meta: [
+      { title: "YieldReclaim — Recover Your Staking Yield" },
+      {
+        name: "description",
+        content:
+          "One-click recovery of accrued staking yield across protocols. Built for ETHGlobal.",
+      },
+      { property: "og:title", content: "YieldReclaim — Recover Your Staking Yield" },
+      {
+        property: "og:description",
+        content:
+          "One-click recovery of accrued staking yield across protocols. Built for ETHGlobal.",
+      },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary" },
+    ],
+  }),
   component: Index,
 });
 
-// IMPORTANT: Replace this placeholder. See ./README.md for routing conventions.
+type Position = {
+  id: string;
+  protocol: string;
+  asset: string;
+  staked: number;
+  yieldAccrued: number;
+  apy: number;
+  claimed: boolean;
+};
+
+const INITIAL_POSITIONS: Position[] = [
+  { id: "1", protocol: "Lido", asset: "stETH", staked: 4.2, yieldAccrued: 0.0831, apy: 3.2, claimed: false },
+  { id: "2", protocol: "Rocket Pool", asset: "rETH", staked: 1.75, yieldAccrued: 0.0412, apy: 2.9, claimed: false },
+  { id: "3", protocol: "EigenLayer", asset: "ETH", staked: 2.0, yieldAccrued: 0.0677, apy: 4.1, claimed: false },
+];
+
+function randomAddress() {
+  const chars = "0123456789abcdef";
+  let s = "0x";
+  for (let i = 0; i < 40; i++) s += chars[Math.floor(Math.random() * 16)];
+  return s;
+}
+
 function Index() {
+  const [address, setAddress] = useState<string | null>(null);
+  const [connecting, setConnecting] = useState(false);
+  const [positions, setPositions] = useState<Position[]>(INITIAL_POSITIONS);
+  const [harvesting, setHarvesting] = useState<string | null>(null);
+
+  const totalYield = positions
+    .filter((p) => !p.claimed)
+    .reduce((sum, p) => sum + p.yieldAccrued, 0);
+  const totalStaked = positions.reduce((sum, p) => sum + p.staked, 0);
+
+  const connect = () => {
+    setConnecting(true);
+    setTimeout(() => {
+      setAddress(randomAddress());
+      setConnecting(false);
+      toast.success("Wallet connected");
+    }, 800);
+  };
+
+  const harvest = (id: string) => {
+    setHarvesting(id);
+    setTimeout(() => {
+      setPositions((prev) =>
+        prev.map((p) => (p.id === id ? { ...p, claimed: true } : p)),
+      );
+      setHarvesting(null);
+      const pos = positions.find((p) => p.id === id);
+      toast.success(`Recovered ${pos?.yieldAccrued.toFixed(4)} ETH from ${pos?.protocol}`);
+    }, 1200);
+  };
+
+  const harvestAll = () => {
+    setHarvesting("all");
+    setTimeout(() => {
+      setPositions((prev) => prev.map((p) => ({ ...p, claimed: true })));
+      setHarvesting(null);
+      toast.success(`Recovered ${totalYield.toFixed(4)} ETH total 🎉`);
+    }, 1600);
+  };
+
   return (
-    <div
-      className="flex min-h-screen items-center justify-center"
-      style={{ backgroundColor: "#fcfbf8" }}
-    >
-      <img
-        data-lovable-blank-page-placeholder="REMOVE_THIS"
-        src="https://cdn.gpteng.co/blank-app-v1.svg"
-        alt="Your app will live here!"
-      />
+    <div className="min-h-screen bg-background">
+      <Toaster />
+      {/* Header */}
+      <header className="border-b">
+        <div className="mx-auto flex max-w-3xl items-center justify-between px-4 py-4">
+          <div className="flex items-center gap-2">
+            <span className="text-xl">⚡</span>
+            <span className="text-lg font-bold tracking-tight">YieldReclaim</span>
+            <Badge variant="secondary">ETHGlobal</Badge>
+          </div>
+          {address ? (
+            <Badge variant="outline" className="font-mono">
+              {address.slice(0, 6)}…{address.slice(-4)}
+            </Badge>
+          ) : (
+            <Button onClick={connect} disabled={connecting} size="sm">
+              {connecting ? "Connecting…" : "Connect Wallet"}
+            </Button>
+          )}
+        </div>
+      </header>
+
+      <main className="mx-auto max-w-3xl px-4 py-10">
+        <div className="mb-8 text-center">
+          <h1 className="text-3xl font-bold tracking-tight">
+            Recover your staking yield
+          </h1>
+          <p className="mt-2 text-muted-foreground">
+            One click to harvest accrued rewards across all your staking positions.
+          </p>
+        </div>
+
+        {/* Stats */}
+        <div className="mb-6 grid grid-cols-3 gap-4">
+          <Card>
+            <CardHeader className="pb-2">
+              <CardDescription>Total Staked</CardDescription>
+              <CardTitle className="text-2xl">{totalStaked.toFixed(2)} ETH</CardTitle>
+            </CardHeader>
+          </Card>
+          <Card>
+            <CardHeader className="pb-2">
+              <CardDescription>Claimable Yield</CardDescription>
+              <CardTitle className="text-2xl text-primary">
+                {totalYield.toFixed(4)} ETH
+              </CardTitle>
+            </CardHeader>
+          </Card>
+          <Card>
+            <CardHeader className="pb-2">
+              <CardDescription>Positions</CardDescription>
+              <CardTitle className="text-2xl">{positions.length}</CardTitle>
+            </CardHeader>
+          </Card>
+        </div>
+
+        {/* Positions */}
+        <Card>
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <CardTitle>Your Positions</CardTitle>
+              <Button
+                onClick={harvestAll}
+                disabled={!address || totalYield === 0 || harvesting !== null}
+              >
+                {harvesting === "all" ? "Harvesting…" : "Harvest All"}
+              </Button>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-1">
+            {positions.map((p, i) => (
+              <div key={p.id}>
+                {i > 0 && <Separator className="my-3" />}
+                <div className="flex items-center justify-between">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="font-semibold">{p.protocol}</span>
+                      <Badge variant="outline">{p.asset}</Badge>
+                      <span className="text-xs text-muted-foreground">
+                        APY {p.apy}%
+                      </span>
+                    </div>
+                    <p className="mt-1 text-sm text-muted-foreground">
+                      Staked {p.staked} ETH · Yield{" "}
+                      <span className={p.claimed ? "" : "font-medium text-foreground"}>
+                        {p.yieldAccrued.toFixed(4)} ETH
+                      </span>
+                    </p>
+                  </div>
+                  {p.claimed ? (
+                    <Badge variant="secondary">Claimed ✓</Badge>
+                  ) : (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => harvest(p.id)}
+                      disabled={!address || harvesting !== null}
+                    >
+                      {harvesting === p.id ? "…" : "Recover"}
+                    </Button>
+                  )}
+                </div>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+
+        {!address && (
+          <p className="mt-4 text-center text-sm text-muted-foreground">
+            Connect your wallet to recover yield.
+          </p>
+        )}
+
+        <footer className="mt-12 text-center text-xs text-muted-foreground">
+          Built for ETHGlobal · Demo frontend, no real funds at risk
+        </footer>
+      </main>
     </div>
   );
 }
