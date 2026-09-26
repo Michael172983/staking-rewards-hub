@@ -12,6 +12,14 @@ import {
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
+import { getSuiStakes, type SuiStake } from "@/lib/sui";
+import { screenAll } from "@/lib/intercepta";
+
+const CONTRACTS = {
+  lido: "0xae7ab96520de3a18e5e111b5eaab095312d7fe84",
+  rocketpool: "0xae78736cd615f374d3085123a210448e74fc6393",
+  eigenlayer: "0x858646372cc42e1a627fce94aa7a7033e7cf075a",
+};
 
 export const Route = createFileRoute("/")({
   head: () => ({
