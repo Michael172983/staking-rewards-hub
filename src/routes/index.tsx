@@ -63,6 +63,9 @@ function Index() {
   const [connecting, setConnecting] = useState(false);
   const [positions, setPositions] = useState<Position[]>(INITIAL_POSITIONS);
   const [harvesting, setHarvesting] = useState<string | null>(null);
+  const [suiAddr, setSuiAddr] = useState("");
+  const [suiStakes, setSuiStakes] = useState<SuiStake[] | null>(null);
+  const [suiLoading, setSuiLoading] = useState(false);
 
   const totalYield = positions
     .filter((p) => !p.claimed)
@@ -90,13 +93,34 @@ function Index() {
     }, 1200);
   };
 
-  const harvestAll = () => {
+  const harvestAll = async () => {
     setHarvesting("all");
+    const results = await screenAll(Object.values(CONTRACTS));
+    const bad = results.find((r) => r.verdict === "flagged");
+    if (bad) {
+      setHarvesting(null);
+      toast.error(`Intercepta blocked ${bad.address.slice(0, 8)}…: ${bad.reason}`);
+      return;
+    }
+    toast.message(`Intercepta: ${results.length} contracts passed screening ✓`);
     setTimeout(() => {
       setPositions((prev) => prev.map((p) => ({ ...p, claimed: true })));
       setHarvesting(null);
       toast.success(`Recovered ${totalYield.toFixed(4)} ETH total 🎉`);
-    }, 1600);
+    }, 1200);
+  };
+
+  const loadSui = async () => {
+    setSuiLoading(true);
+    try {
+      const s = await getSuiStakes(suiAddr.trim());
+      setSuiStakes(s);
+      toast.success(`Loaded ${s.length} Sui stake(s) from mainnet`);
+    } catch (e) {
+      toast.error(`Sui RPC error: ${(e as Error).message}`);
+    } finally {
+      setSuiLoading(false);
+    }
   };
 
   return (
@@ -202,6 +226,35 @@ function Index() {
                     </Button>
                   )}
                 </div>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+
+        <Card className="mt-6">
+          <CardHeader>
+            <CardTitle>Sui staking (live mainnet)</CardTitle>
+            <CardDescription>Reads real stakes via Sui JSON-RPC suix_getStakes.</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <div className="flex gap-2">
+              <input
+                value={suiAddr}
+                onChange={(e) => setSuiAddr(e.target.value)}
+                placeholder="0x… Sui address"
+                className="flex-1 rounded-md border bg-background px-3 py-2 font-mono text-sm"
+              />
+              <Button onClick={loadSui} disabled={suiLoading || !suiAddr}>
+                {suiLoading ? "…" : "Load"}
+              </Button>
+            </div>
+            {suiStakes?.length === 0 && (
+              <p className="text-sm text-muted-foreground">No stakes found.</p>
+            )}
+            {suiStakes?.map((s, i) => (
+              <div key={i} className="flex justify-between rounded-md border p-3 text-sm">
+                <span className="font-mono">{s.validator.slice(0, 10)}…</span>
+                <span>{s.principal.toFixed(2)} SUI · +{s.reward.toFixed(4)} ({s.status})</span>
               </div>
             ))}
           </CardContent>
