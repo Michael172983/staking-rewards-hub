@@ -1,31 +1,35 @@
-// Real Sui mainnet staking reader via public JSON-RPC (suix_getStakes).
-const SUI_RPC = "https://fullnode.mainnet.sui.io:443";
+// Real Sui mainnet staking reader via the official Sui GraphQL endpoint.
+// Queries all 0x3::staking_pool::StakedSui objects owned by an address.
+const SUI_GRAPHQL = "https://graphql.mainnet.sui.io/graphql";
 
 export type SuiStake = {
-  validator: string;
+  validator: string; // staking pool id
   principal: number; // SUI
-  reward: number; // SUI
+  reward: number; // not exposed on-object; 0 here
   status: string;
 };
 
+const QUERY = `query($owner: SuiAddress!) {
+  objects(first: 50, filter: { owner: $owner, type: "0x3::staking_pool::StakedSui" }) {
+    nodes { asMoveObject { contents { json } } }
+  }
+}`;
+
 export async function getSuiStakes(owner: string): Promise<SuiStake[]> {
-  const res = await fetch(SUI_RPC, {
+  const res = await fetch(SUI_GRAPHQL, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "suix_getStakes", params: [owner] }),
+    body: JSON.stringify({ query: QUERY, variables: { owner } }),
   });
   const json = await res.json();
-  if (json.error) throw new Error(json.error.message);
-  const out: SuiStake[] = [];
-  for (const v of json.result ?? []) {
-    for (const s of v.stakes ?? []) {
-      out.push({
-        validator: v.validatorAddress,
-        principal: Number(s.principal) / 1e9,
-        reward: Number(s.estimatedReward ?? 0) / 1e9,
-        status: s.status,
-      });
-    }
-  }
-  return out;
+  if (json.errors?.length) throw new Error(json.errors[0].message);
+  return (json.data?.objects?.nodes ?? []).map((n: any) => {
+    const c = n.asMoveObject.contents.json;
+    return {
+      validator: c.pool_id,
+      principal: Number(c.principal) / 1e9,
+      reward: 0,
+      status: `epoch ${c.stake_activation_epoch}`,
+    };
+  });
 }
